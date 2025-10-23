@@ -12,15 +12,18 @@ if [ -f "$ENV_FILE" ]; then
   esac
 fi
 
-# Generate a random Kafka Cluster ID (UUID style)
-KAFKA_CLUSTER_ID=$(uuidgen)
+# Function to generate a Kafka Cluster ID like MkU3OEVBNTcwNTJENDM2Qk (22 chars Base64)
+generate_cluster_id() {
+  head -c 16 /dev/urandom | base64 | tr -d "=+/" | head -c 22
+}
 
 # Function to generate a secure random password (16 chars: letters + numbers)
 generate_password() {
   tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16
 }
 
-# Generate passwords
+# Generate Cluster ID and passwords
+KAFKA_CLUSTER_ID=$(generate_cluster_id)
 KAFKA_ADMIN_PASSWORD=$(generate_password)
 KAFKA_BROKER_PASSWORD=$(generate_password)
 KAFKA_APP_PASSWORD=$(generate_password)
