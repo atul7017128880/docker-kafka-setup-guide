@@ -1,0 +1,165 @@
+# Prometheus Alert Rules for Kafka
+# Copy to alerts.yml and configure in prometheus.yml
+
+groups:
+  - name: kafka_alerts
+    interval: 30s
+    rules:
+      # Broker availability
+      - alert: KafkaBrokerDown
+        expr: up{job="kafka-jmx"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: kafka
+        annotations:
+          summary: "Kafka broker {{ $labels.instance }} is down"
+          description: "Kafka broker {{ $labels.instance }} has been down for more than 1 minute."
+
+      # Under-replicated partitions
+      - alert: KafkaUnderReplicatedPartitions
+        expr: kafka_server_replicamanager_underreplicatedpartitions > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: "Kafka has under-replicated partitions"
+          description: "Kafka broker {{ $labels.instance }} has {{ $value }} under-replicated partitions for more than 5 minutes."
+
+      # Offline partitions
+      - alert: KafkaOfflinePartitions
+        expr: kafka_controller_kafkacontroller_offlinepartitionscount > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: kafka
+        annotations:
+          summary: "Kafka has offline partitions"
+          description: "Kafka cluster has {{ $value }} offline partitions."
+
+      # ISR shrinks
+      - alert: KafkaISRShrink
+        expr: rate(kafka_server_replicamanager_isrshrinks_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: "Kafka ISR is shrinking"
+          description: "Kafka broker {{ $labels.instance }} ISR is shrinking (rate: {{ $value }})."
+
+      # High memory usage
+      - alert: KafkaHighMemoryUsage
+        expr: (jvm_memory_bytes_used{area="heap"} / jvm_memory_bytes_max{area="heap"}) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: "Kafka broker high memory usage"
+          description: "Kafka broker {{ $labels.instance }} is using {{ $value | humanizePercentage }} of heap memory."
+
+      # High CPU usage
+      - alert: KafkaHighCPUUsage
+        expr: rate(process_cpu_seconds_total{job="kafka-jmx"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: "Kafka broker high CPU usage"
+          description: "Kafka broker {{ $labels.instance }} CPU usage is {{ $value | humanizePercentage }}."
+
+      # Disk usage
+      - alert: KafkaHighDiskUsage
+        expr: (kafka_log_logmanager_logsize / (1024*1024*1024)) > 400
+        for: 10m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: "Kafka high disk usage"
+          description: "Kafka broker {{ $labels.instance }} is using {{ $value }}GB of disk space."
+
+      # Request rate
+      - alert: KafkaHighRequestRate
+        expr: rate(kafka_network_requestmetrics_requests_total[5m]) > 1000
+        for: 10m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: "Kafka high request rate"
+          description: "Kafka broker {{ $labels.instance }} is handling {{ $value }} requests/sec."
+
+      # Failed authentication
+      - alert: KafkaAuthenticationFailures
+        expr: rate(kafka_server_kafkaserver_failedsaslauthn_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka
+          security: authentication
+        annotations:
+          summary: "Kafka authentication failures detected"
+          description: "Kafka broker {{ $labels.instance }} has {{ $value }} failed authentication attempts per second."
+
+      # Leader elections
+      - alert: KafkaFrequentLeaderElections
+        expr: rate(kafka_controller_kafkacontroller_leaderelectionrateandtimems_count[15m]) > 3
+        for: 15m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: "Frequent Kafka leader elections"
+          description: "Kafka cluster is experiencing frequent leader elections ({{ $value }} per second over 15 minutes)."
+
+      # Active controller
+      - alert: KafkaNoActiveController
+        expr: sum(kafka_controller_kafkacontroller_activecontrollercount) != 1
+        for: 1m
+        labels:
+          severity: critical
+          component: kafka
+        annotations:
+          summary: "Kafka has no active controller or multiple active controllers"
+          description: "Kafka cluster has {{ $value }} active controllers (expected: 1)."
+
+      # Request queue size
+      - alert: KafkaHighRequestQueueSize
+        expr: kafka_network_requestchannel_requestqueuesize > 100
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: "Kafka high request queue size"
+          description: "Kafka broker {{ $labels.instance }} request queue size is {{ $value }}."
+
+      # Response queue size
+      - alert: KafkaHighResponseQueueSize
+        expr: kafka_network_requestchannel_responsequeuesize > 100
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: "Kafka high response queue size"
+          description: "Kafka broker {{ $labels.instance }} response queue size is {{ $value }}."
+
+  - name: kafka_consumer_lag_alerts
+    interval: 60s
+    rules:
+      # Consumer lag
+      - alert: KafkaConsumerLagHigh
+        expr: kafka_consumergroup_lag > 1000
+        for: 10m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: "Kafka consumer lag is high"
+          description: "Consumer group {{ $labels.consumergroup }} lag on topic {{ $labels.topic }} partition {{ $labels.partition }} is {{ $value }}."
+
