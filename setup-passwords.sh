@@ -22,17 +22,24 @@ generate_password() {
   tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16
 }
 
-# Generate Cluster ID and passwords
+# Function to detect the host IP automatically (first non-loopback IPv4)
+get_host_ip() {
+  ip -4 addr show scope global | grep inet | awk '{print $2}' | cut -d/ -f1 | head -n1
+}
+
+# Generate Cluster ID, passwords, and host IP
 KAFKA_CLUSTER_ID=$(generate_cluster_id)
 KAFKA_ADMIN_PASSWORD=$(generate_password)
 KAFKA_BROKER_PASSWORD=$(generate_password)
 KAFKA_APP_PASSWORD=$(generate_password)
 UI_ADMIN_PASSWORD=$(generate_password)
+HOST_IP=$(get_host_ip)
 
 # Create .env file
 cat <<EOF > "$ENV_FILE"
 # Kafka Cluster Configuration
 KAFKA_CLUSTER_ID=$KAFKA_CLUSTER_ID
+HOST_IP=$HOST_IP
 
 # SASL/SCRAM Authentication
 KAFKA_ADMIN_USERNAME=admin
@@ -47,7 +54,7 @@ UI_ADMIN_USERNAME=kafka-ui
 UI_ADMIN_PASSWORD=$UI_ADMIN_PASSWORD
 EOF
 
-echo ".env file generated with new passwords and cluster ID!"
+echo ".env file generated with new passwords, cluster ID, and HOST_IP ($HOST_IP)!"
 
 # Update kafka_server_jaas.conf
 if [ ! -d "$(dirname "$JAAS_FILE")" ]; then
